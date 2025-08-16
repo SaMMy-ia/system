@@ -1,0 +1,90 @@
+create database gestao_consultas4;
+use gestao_consultas4;
+
+-- =============================
+-- TABELA: medicos
+-- =============================
+CREATE TABLE medicos (
+  codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
+  nome_completo VARCHAR(100) NOT NULL,
+  especialidade VARCHAR(50) NOT NULL,
+  numero_da_cedula_profissional VARCHAR(30) NOT NULL UNIQUE,
+  telefone VARCHAR(25),
+  email VARCHAR(100) NOT NULL UNIQUE,
+  senha VARCHAR(150) NOT NULL,
+  data_nascimento DATE,
+  sexo VARCHAR(20),
+  ano_de_conclusao YEAR,
+  nivel_academico VARCHAR(100),
+  estado VARCHAR(20) DEFAULT 'activo',
+  data_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================
+-- TABELA: pacientes
+-- =============================
+CREATE TABLE pacientes (
+  codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
+  nome_completo VARCHAR(100) NOT NULL,
+  data_nascimento DATE,
+  sexo VARCHAR(20),
+  telefone VARCHAR(25),
+  email VARCHAR(100) NOT NULL UNIQUE,
+  senha VARCHAR(150) NOT NULL,
+  morada VARCHAR(100),
+  grupo_sanguineo VARCHAR(10),
+  estado VARCHAR(20) DEFAULT 'activo',
+  data_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================
+-- TABELA: secretarios
+-- =============================
+CREATE TABLE secretarios (
+  codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
+  nome_completo VARCHAR(100) NOT NULL,
+  data_nascimento DATE,
+  sexo VARCHAR(20),
+  telefone VARCHAR(25),
+  email VARCHAR(100) NOT NULL UNIQUE,
+  senha VARCHAR(150) NOT NULL,
+  estado VARCHAR(20) DEFAULT 'activo',
+  data_registro DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =============================
+-- TABELA: consultas
+-- =============================
+CREATE TABLE consultas (
+  codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
+  codigo_medico BIGINT NOT NULL,
+  codigo_paciente BIGINT NOT NULL,
+  nome_medico VARCHAR(100) NOT NULL,
+  nome_paciente VARCHAR(100) NOT NULL,
+  data_consulta DATE NOT NULL,
+  hora_consulta TIME NOT NULL,
+  tipo_consulta VARCHAR(50) NOT NULL,
+  custo DOUBLE,
+  local_da_consulta VARCHAR(100),
+  estado VARCHAR(35) DEFAULT 'Agendada',
+  data_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (codigo_medico) REFERENCES medicos(codigo),
+  FOREIGN KEY (codigo_paciente) REFERENCES pacientes(codigo)
+);
+
+-- =============================
+-- TABELA: sessao
+-- =============================
+CREATE TABLE sessao (
+  codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
+  codigo_usuario BIGINT NOT NULL,
+  tipo_usuario VARCHAR(20) NOT NULL,
+  acao VARCHAR(100) NOT NULL,
+  data_acao DATETIME DEFAULT CURRENT_TIMESTAMP,
+  detalhes TEXT,
+  token VARCHAR(255) UNIQUE,
+  isValid BOOLEAN DEFAULT TRUE,
+  creared_at CURRENT_TIMESTAMP
+);
+
+Mesclar essas duas tabelas

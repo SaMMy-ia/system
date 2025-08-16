@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Sistema de Agendamento</title>
+    <link rel="stylesheet" href="../public/Styles.css" />
+    <style>
+      /* Estilos gerais */
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f7fa;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        color: #333;
+      }
+
+      /* Container principal */
+      .login-container {
+        width: 100%;
+        max-width: 400px;
+        padding: 20px;
+      }
+
+      /* Card de login */
+      .login-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        text-align: center;
+      }
+
+      .login-card h2 {
+        color: #2c3e50;
+        margin-bottom: 25px;
+        font-size: 24px;
+      }
+
+      /* Grupos de formulário */
+      .form-group {
+        margin-bottom: 20px;
+        text-align: left;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+        box-sizing: border-box;
+      }
+
+      .form-group input:focus {
+        border-color: #3498db;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+      }
+
+      /* Botão de login */
+      .btn-login {
+        width: 100%;
+        padding: 12px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        margin-top: 10px;
+      }
+
+      .btn-login:hover {
+        background-color: #2980b9;
+      }
+
+      /* Mensagens */
+      .message {
+        padding: 12px;
+        border-radius: 6px;
+        margin: 20px 0;
+        font-size: 14px;
+      }
+
+      .message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      /* Link de criar conta */
+      .create-account {
+        display: block;
+        margin-top: 15px;
+        color: #3498db;
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.3s;
+      }
+
+      .create-account:hover {
+        color: #2980b9;
+        text-decoration: underline;
+      }
+
+      /* Mensagens de erro */
+      .error-message {
+        color: #e74c3c;
+        font-size: 13px;
+        margin-top: 5px;
+        display: block;
+        height: 18px;
+      }
+
+      /* Efeitos responsivos */
+      @media (max-width: 480px) {
+        .login-card {
+          padding: 20px;
+        }
+
+        .login-card h2 {
+          font-size: 20px;
+        }
+      }
+    </style>
+    <!-- Adicionando jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-card">
+        <h2>Sistema de Agendamento Médico</h2>
+        <form id="loginForm" method="post">
+          <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required />
+            <span class="error-message" id="email-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="password">Senha:</label>
+            <input type="password" id="password" name="password" required />
+            <span class="error-message" id="password-error"></span>
+          </div>
+          <button type="submit" class="btn-login">Entrar</button>
+        </form>
+        <div id="message" class="message"></div>
+        <a href="#" class="create-account">Criar nova conta!</a>
+      </div>
+    </div>
+
+    <script>
+      $(document).ready(function () {
+        // Validação em tempo real
+        $("#email").on("input", function () {
+          validateEmail();
+        });
+
+        $("#password").on("input", function () {
+          validatePassword();
+        });
+
+        // Funções de validação
+        function validateEmail() {
+          const email = $("#email").val();
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+          if (!email) {
+            $("#email-error").text("Por favor, insira seu email.");
+            return false;
+          } else if (!emailRegex.test(email)) {
+            $("#email-error").text("Por favor, insira um email válido.");
+            return false;
+          } else {
+            $("#email-error").text("");
+            return true;
+          }
+        }
+
+        function validatePassword() {
+          const password = $("#password").val();
+
+          if (!password) {
+            $("#password-error").text("Por favor, insira sua senha.");
+            return false;
+          } else if (password.length < 6) {
+            $("#password-error").text(
+              "A senha deve ter pelo menos 6 caracteres."
+            );
+            return false;
+          } else {
+            $("#password-error").text("");
+            return true;
+          }
+        }
+
+        // Validação no submit
+        $("#loginForm").submit(async function (e) {
+          e.preventDefault();
+
+          const isEmailValid = validateEmail();
+          const isPasswordValid = validatePassword();
+
+          if (!isEmailValid || !isPasswordValid) {
+            $("#message")
+              .text("Por favor, corrija os erros no formulário.")
+              .addClass("error")
+              .removeClass("success");
+            return;
+          }
+
+          const email = $("#email").val();
+          const password = $("#password").val();
+
+          try {
+            const response = await fetch(
+              "../controllers/AuthController.php?action=login",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: `email=${encodeURIComponent(
+                  email
+                )}&password=${encodeURIComponent(password)}`,
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(
+                `Erro HTTP: ${response.status} - ${response.statusText}`
+              );
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+              $("#message")
+                .text("Login bem-sucedido!")
+                .addClass("success")
+                .removeClass("error");
+
+              switch (data.user_type) {
+                case "admin":
+                  window.location.href = "admin/dashboard.php";
+                  break;
+                case "medico":
+                  window.location.href = "Medico/dashboardMedico.php";
+                  break;
+                case "secretario":
+                  window.location.href = "Secretario/dashboardSecretario.php";
+                  break;
+                case "paciente":
+                  window.location.href = "Paciente/dashboardPaciente.php";
+                  break;
+                default:
+                  window.location.href = "/";
+              }
+            } else {
+              $("#message")
+                .text(data.message || "Credenciais inválidas!")
+                .addClass("error")
+                .removeClass("success");
+            }
+          } catch (error) {
+            console.error("Erro:", error);
+            $("#message")
+              .text(`Erro ao processar login: ${error.message}`)
+              .addClass("error")
+              .removeClass("success");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
