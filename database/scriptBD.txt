@@ -83,8 +83,30 @@ CREATE TABLE sessao (
   data_acao DATETIME DEFAULT CURRENT_TIMESTAMP,
   detalhes TEXT,
   token VARCHAR(255) UNIQUE,
-  isValid BOOLEAN DEFAULT TRUE,
-  creared_at CURRENT_TIMESTAMP
+  isValid BOOLEAN DEFAULT TRUE
 );
 
-Mesclar essas duas tabelas
+
+-- =============================
+-- INSERT em medicos
+-- =============================
+INSERT INTO medicos 
+(nome_completo, especialidade, numero_da_cedula_profissional, telefone, email, senha, data_nascimento, sexo, ano_de_conclusao, nivel_academico)
+VALUES 
+('Dr. Manuel Costa', 'Cardiologia', 'CED12345', '841234567', 'manuelcosta@email.com', '123456', '1980-05-20', 'Masculino', 2005, 'Licenciatura em Medicina');
+
+-- =============================
+-- INSERT em pacientes
+-- =============================
+INSERT INTO pacientes
+(nome_completo, data_nascimento, sexo, telefone, email, senha, morada, grupo_sanguineo)
+VALUES
+('admin', '1995-10-15', 'Feminino', '849876543', 'admin@gmail.com', '123456', 'Maputo - Bairro Central', 'O+');
+
+-- =============================
+-- INSERT em secretarios
+-- =============================
+INSERT INTO secretarios
+(nome_completo, data_nascimento, sexo, telefone, email, senha)
+VALUES
+('Jose Antonio', '1990-07-30', 'Feminino', '847654321', 'joseantonio@email.com', '123456');
