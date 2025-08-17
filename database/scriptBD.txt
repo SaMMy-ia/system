@@ -75,16 +75,23 @@ CREATE TABLE consultas (
 -- =============================
 -- TABELA: sessao
 -- =============================
+
 CREATE TABLE sessao (
   codigo BIGINT AUTO_INCREMENT PRIMARY KEY,
   codigo_usuario BIGINT NOT NULL,
   tipo_usuario VARCHAR(20) NOT NULL,
   acao VARCHAR(100) NOT NULL,
-  data_acao DATETIME DEFAULT CURRENT_TIMESTAMP,
-  detalhes TEXT,
-  token VARCHAR(255) UNIQUE,
-  isValid BOOLEAN DEFAULT TRUE
-);
+  token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at DATETIME NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  data_acao DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Índices para melhor performance
+CREATE INDEX idx_sessao_token ON sessao(token);
+CREATE INDEX idx_sessao_usuario ON sessao(codigo_usuario, tipo_usuario);
+CREATE INDEX idx_sessao_expiracao ON sessao(expires_at);
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
 
 
 -- =============================
@@ -93,7 +100,7 @@ CREATE TABLE sessao (
 INSERT INTO medicos 
 (nome_completo, especialidade, numero_da_cedula_profissional, telefone, email, senha, data_nascimento, sexo, ano_de_conclusao, nivel_academico)
 VALUES 
-('Dr. Manuel Costa', 'Cardiologia', 'CED12345', '841234567', 'manuelcosta@email.com', '123456', '1980-05-20', 'Masculino', 2005, 'Licenciatura em Medicina');
+('Dr. Manuel Costa', 'Cardiologia', 'CED12345', '841234567', 'manuelcosta@gmail.com', '123456', '1980-05-20', 'Masculino', 2005, 'Licenciatura em Medicina');
 
 -- =============================
 -- INSERT em pacientes
@@ -109,4 +116,4 @@ VALUES
 INSERT INTO secretarios
 (nome_completo, data_nascimento, sexo, telefone, email, senha)
 VALUES
-('Jose Antonio', '1990-07-30', 'Feminino', '847654321', 'joseantonio@email.com', '123456');
+('Jose Antonio', '1990-07-30', 'Feminino', '847654321', 'joseantonio@gmail.com', '123456');

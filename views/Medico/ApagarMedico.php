@@ -47,7 +47,7 @@ $stmt->execute([$medicoId]);
 
 // Registrar ação
 $sessaoDAO = new SessaoDAO();
-$sessaoDAO->registarSessao(
+$sessaoDAO->criarSessao(
     $_SESSION['user_id'],
     $_SESSION['user_type'],
     'Exclusão (inativação) do médico ID: ' . $medicoId

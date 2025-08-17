@@ -1,12 +1,22 @@
 <?php
 session_start();
+require_once __DIR__ . '/../../database/conexaoBd.php';
+require_once __DIR__ . '/../../models/SessaoDAO.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'medico') {
+// Verificar token em vez de sessão
+$token = $_COOKIE['authToken'] ?? null;
+$sessaoDAO = new SessaoDAO();
+$user = $token ? $sessaoDAO->validarToken($token) : null;
+
+if (!$user || $user['tipo_usuario'] !== 'medico') {
     header('Location: ../login.html');
     exit;
 }
 
-// Gerar token CSRF
+// Definir variáveis de sessão para uso posterior
+$_SESSION['user_id'] = $user['codigo_usuario'];
+$_SESSION['user_type'] = $user['tipo_usuario'];
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }

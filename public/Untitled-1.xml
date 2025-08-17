@@ -1,0 +1,380 @@
+ <style>
+      :root {
+        --primary-color: #3498db;
+        --primary-hover: #2980b9;
+        --error-color: #e74c3c;
+        --success-color: #2ecc71;
+        --text-color: #2c3e50;
+        --light-gray: #ecf0f1;
+        --white: #ffffff;
+        --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f7fa;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        color: var(--text-color);
+        line-height: 1.6;
+        background-image: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+      }
+
+      .login-container {
+        width: 100%;
+        max-width: 420px;
+        padding: 20px;
+        animation: fadeIn 0.5s ease-in-out;
+      }
+
+      .login-card {
+        background: var(--white);
+        border-radius: 12px;
+        box-shadow: var(--shadow);
+        padding: 30px;
+        text-align: center;
+        transition: transform 0.3s ease;
+      }
+
+      .login-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .login-card h2 {
+        color: var(--text-color);
+        margin-bottom: 25px;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+        text-align: left;
+        position: relative;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: var(--text-color);
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 14px 15px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: all 0.3s;
+      }
+
+      .form-group input:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+      }
+
+      .form-group .input-icon {
+        position: absolute;
+        right: 15px;
+        top: 40px;
+        color: #95a5a6;
+      }
+
+      .btn-login {
+        width: 100%;
+        padding: 14px;
+        background-color: var(--primary-color);
+        color: var(--white);
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-login:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-2px);
+      }
+
+      .btn-login:active {
+        transform: translateY(0);
+      }
+
+      .message {
+        padding: 12px;
+        border-radius: 8px;
+        margin: 20px 0;
+        font-size: 14px;
+        display: none;
+      }
+
+      .message.show {
+        display: block;
+        animation: slideDown 0.3s ease-out;
+      }
+
+      .message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .message.error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .create-account {
+        display: block;
+        margin-top: 15px;
+        color: var(--primary-color);
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.3s;
+      }
+
+      .create-account:hover {
+        color: var(--primary-hover);
+        text-decoration: underline;
+      }
+
+      .error-message {
+        color: var(--error-color);
+        font-size: 13px;
+        margin-top: 5px;
+        display: block;
+        height: 18px;
+      }
+
+      .password-hint {
+        color: #7f8c8d;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+      }
+
+      .toggle-password {
+        position: absolute;
+        right: 15px;
+        top: 40px;
+        cursor: pointer;
+        color: #95a5a6;
+      }
+
+      @media (max-width: 480px) {
+        .login-card {
+          padding: 25px;
+        }
+
+        .login-card h2 {
+          font-size: 22px;
+        }
+
+        .form-group input {
+          padding: 12px 15px;
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--white);
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+      <script>
+      $(document).ready(function () {
+        // Mostrar/ocultar senha
+        $("#togglePassword").click(function () {
+          const passwordInput = $("#password");
+          const icon = $(this);
+
+          if (passwordInput.attr("type") === "password") {
+            passwordInput.attr("type", "text");
+            icon.removeClass("fa-eye").addClass("fa-eye-slash");
+          } else {
+            passwordInput.attr("type", "password");
+            icon.removeClass("fa-eye-slash").addClass("fa-eye");
+          }
+        });
+
+        // Validação em tempo real
+        $("#email").on("input", validateEmail);
+        $("#password").on("input", validatePassword);
+
+        // Funções de validação
+        function validateEmail() {
+          const email = $("#email").val().trim();
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const $error = $("#email-error");
+
+          if (!email) {
+            $error.text("Por favor, insira seu email.");
+            return false;
+          } else if (!emailRegex.test(email)) {
+            $error.text("Por favor, insira um email válido.");
+            return false;
+          } else {
+            $error.text("");
+            return true;
+          }
+        }
+
+        function validatePassword() {
+          const password = $("#password").val();
+          const $error = $("#password-error");
+
+          if (!password) {
+            $error.text("Por favor, insira sua senha.");
+            return false;
+          } else if (password.length < 6) {
+            $error.text("");
+            return true; // Apenas mostra o hint, não bloqueia
+          } else {
+            $error.text("");
+            return true;
+          }
+        }
+
+        // Submissão do formulário
+        $("#loginForm").submit(async function (e) {
+          e.preventDefault();
+
+          // Validar campos
+          const isEmailValid = validateEmail();
+          const isPasswordValid = validatePassword();
+
+          if (!isEmailValid || !isPasswordValid) {
+            showMessage("Por favor, corrija os erros no formulário.", "error");
+            return;
+          }
+
+          // Mostrar estado de carregamento
+          const $button = $("#loginButton");
+          const $buttonText = $("#buttonText");
+          const $spinner = $("#loadingSpinner");
+
+          $button.prop("disabled", true);
+          $buttonText.text("Autenticando...");
+          $spinner.show();
+
+          try {
+            const email = $("#email").val().trim();
+            const password = $("#password").val();
+
+            const response = await fetch(
+              "../controllers/AuthController.php?action=login",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ email, password }),
+              }
+            );
+
+            const data = await parseResponse(response);
+
+            if (data.success) {
+              showMessage("Login bem-sucedido! Redirecionando...", "success");
+
+              // Redirecionar com base no tipo de usuário
+              setTimeout(() => {
+                redirectUser(data.user_type);
+              }, 1500);
+            } else {
+              throw new Error(data.message || "Credenciais inválidas");
+            }
+          } catch (error) {
+            console.error("Erro no login:", error);
+            showMessage(error.message, "error");
+          } finally {
+            $button.prop("disabled", false);
+            $buttonText.text("Entrar");
+            $spinner.hide();
+          }
+        });
+
+        async function parseResponse(response) {
+          const text = await response.text();
+          try {
+            return JSON.parse(text);
+          } catch {
+            throw new Error(text || "Resposta inválida do servidor");
+          }
+        }
+
+        function showMessage(text, type) {
+          const $msg = $("#message");
+          $msg
+            .text(text)
+            .removeClass("success error")
+            .addClass(type + " show")
+            .delay(5000)
+            .queue(function (next) {
+              $(this).removeClass("show");
+              next();
+            });
+        }
+
+        function redirectUser(userType) {
+          const routes = {
+            medico: "Medico/dashboardMedico.php",
+            secretario: "Secretario/dashboardSecretario.php",
+            paciente: "Paciente/dashboardPaciente.php",
+            admin: "admin/dashboard.php",
+          };
+
+          window.location.href = routes[userType] || "/";
+        }
+      });
+    </script>

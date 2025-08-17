@@ -3,12 +3,20 @@ session_start();
 require_once __DIR__ . '/../../database/conexaoBd.php';
 require_once __DIR__ . '/../../models/SessaoDAO.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'secretario') {
+// Verificar token em vez de sessão
+$token = $_COOKIE['authToken'] ?? null;
+$sessaoDAO = new SessaoDAO();
+$user = $token ? $sessaoDAO->validarToken($token) : null;
+
+if (!$user || $user['tipo_usuario'] !== 'secretario') {
     header('Location: ../login.html');
     exit;
 }
 
-// Gerar token CSRF
+// Definir variáveis de sessão para uso posterior
+$_SESSION['user_id'] = $user['codigo_usuario'];
+$_SESSION['user_type'] = $user['tipo_usuario'];
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -34,7 +42,7 @@ if (empty($_SESSION['csrf_token'])) {
         <a href="#" onclick="document.getElementById('formAgendar').scrollIntoView({behavior: 'smooth'})"><i class="fas fa-plus-circle"></i> Novo Agendamento</a>
         <a href="#" onclick="document.getElementById('formPaciente').scrollIntoView({behavior: 'smooth'})"><i class="fas fa-user-plus"></i> Adicionar Paciente</a>
         <a href="#" onclick="document.getElementById('formMedico').scrollIntoView({behavior: 'smooth'})"><i class="fas fa-user-md"></i> Adicionar Médico</a>
-        <a href="../Medico/listarMedico.php" >‗Listar Medicos</a>
+        <a href="../Medico/listarMedico.php">‗Listar Medicos</a>
         <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
     <div class="main">

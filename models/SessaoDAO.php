@@ -1,10 +1,8 @@
 <?php
 require_once __DIR__ . '/../database/conexaoBd.php';
 
-
 class SessaoDAO
 {
-
     private $tabela = 'sessao';
     private $conn;
 
@@ -14,41 +12,49 @@ class SessaoDAO
         $this->conn = $database->getConnection();
     }
 
-    // Registrar sessão
-    public function registarSessao($codigoUsuario, $tipoUsuario, $acao, $detalhes = null)
+    public function criarSessao($codigoUsuario, $tipoUsuario)
     {
+        $token = bin2hex(random_bytes(32));
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+8 hours'));
+        
         $sql = "INSERT INTO {$this->tabela} 
-                (codigo_usuario, tipo_usuario, acao, detalhes) 
-                VALUES (:codigoUsuario, :tipoUsuario, :acao, :detalhes)";
+                (codigo_usuario, tipo_usuario, acao, token, expires_at) 
+                VALUES (:codigoUsuario, :tipoUsuario, 'Login', :token, :expiresAt)";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindParam(':codigoUsuario', $codigoUsuario, PDO::PARAM_INT);
         $stmt->bindParam(':tipoUsuario', $tipoUsuario);
-        $stmt->bindParam(':acao', $acao);
-        $stmt->bindParam(':detalhes', $detalhes);
+        $stmt->bindParam(':token', $token);
+        $stmt->bindParam(':expiresAt', $expiresAt);
 
-        return $stmt->execute();
+        return $stmt->execute() ? $token : false;
     }
 
-    // Selecionar sessões por usuário
-    public function selecionarSessoesPorUsuario($codigoUsuario, $tipoUsuario)
+    public function validarToken($token)
     {
-        $sql = "SELECT * FROM {$this->tabela} 
-                WHERE codigo_usuario = :codigoUsuario 
-                  AND tipo_usuario = :tipoUsuario
-                ORDER BY data_acao DESC";
+        $sql = "SELECT codigo_usuario, tipo_usuario 
+                FROM {$this->tabela} 
+                WHERE token = :token 
+                AND is_active = TRUE 
+                AND expires_at > NOW() 
+                LIMIT 1";
 
         $stmt = $this->conn->prepare($sql);
-        $stmt->bindParam(':codigoUsuario', $codigoUsuario, PDO::PARAM_INT);
-        $stmt->bindParam(':tipoUsuario', $tipoUsuario);
+        $stmt->bindParam(':token', $token);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Invalidar sessão (registrar logout)
-    public function invalidarSessao($codigoUsuario, $tipoUsuario, $detalhes = null)
+    public function encerrarSessao($token)
     {
-        return $this->registarSessao($codigoUsuario, $tipoUsuario, "Logout", $detalhes);
+        $sql = "UPDATE {$this->tabela} 
+                SET is_active = FALSE, acao = 'Logout', expires_at = NOW()
+                WHERE token = :token";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':token', $token);
+        
+        return $stmt->execute();
     }
 }
