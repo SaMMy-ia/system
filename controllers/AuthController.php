@@ -22,7 +22,9 @@ try {
         public function login()
         {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                throw new Exception('Método não permitido', 405);
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Método não permitido']);
+                return;
             }
 
             $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
@@ -30,7 +32,8 @@ try {
             $password = $data['password'] ?? '';
 
             if (empty($email) || empty($password)) {
-                throw new Exception('Email e senha são obrigatórios', 400);
+                echo json_encode(['success' => false, 'message' => 'Email e senha são obrigatórios']);
+                return;
             }
 
             $tables = [
@@ -57,30 +60,31 @@ try {
             }
 
             if (!$user) {
-                throw new Exception('Usuário não encontrado', 404);
+                echo json_encode(['success' => false, 'message' => 'Usuário não encontrado']);
+                return;
             }
 
-            // ✅ Verificação dupla
+            // ✅ Verificação dupla (hash bcrypt ou texto plano)
             $senhaDB = $user['password'];
             $senhaOk = false;
 
-            // Se for hash (bcrypt começa com $2y$...)
             if (strlen($senhaDB) > 30 && password_verify($password, $senhaDB)) {
                 $senhaOk = true;
-            }
-            // Se estiver em texto plano
-            elseif ($password === $senhaDB) {
+            } elseif ($password === $senhaDB) {
                 $senhaOk = true;
             }
 
             if (!$senhaOk) {
-                throw new Exception('Senha incorreta', 401);
+                echo json_encode(['success' => false, 'message' => 'Senha incorreta']);
+                return;
             }
 
             // Criar sessão
             $token = $this->sessaoDAO->criarSessao($user['id'], $user_type);
             if (!$token) {
-                throw new Exception('Falha ao criar sessão', 500);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Falha ao criar sessão']);
+                return;
             }
 
             // 🔹 secure => false em localhost
@@ -88,7 +92,7 @@ try {
             setcookie('authToken', $token, [
                 'expires' => time() + 8 * 3600,
                 'path' => '/',
-                'secure' => !$isLocal, // HTTPS só fora do localhost
+                'secure' => !$isLocal,
                 'httponly' => true,
                 'samesite' => 'Strict'
             ]);
@@ -104,7 +108,8 @@ try {
         {
             $token = $this->getBearerToken();
             if (!$token) {
-                throw new Exception('Token não fornecido', 401);
+                echo json_encode(['success' => false, 'message' => 'Token não fornecido']);
+                return;
             }
 
             if ($this->sessaoDAO->encerrarSessao($token)) {
@@ -117,7 +122,8 @@ try {
                 ]);
                 echo json_encode(['success' => true, 'message' => 'Logout realizado com sucesso']);
             } else {
-                throw new Exception('Falha ao encerrar sessão', 500);
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Falha ao encerrar sessão']);
             }
         }
 
@@ -125,12 +131,14 @@ try {
         {
             $token = $this->getBearerToken();
             if (!$token) {
-                throw new Exception('Token não fornecido', 401);
+                echo json_encode(['success' => false, 'message' => 'Token não fornecido']);
+                return;
             }
 
             $user = $this->sessaoDAO->validarToken($token);
             if (!$user) {
-                throw new Exception('Token inválido ou expirado', 401);
+                echo json_encode(['success' => false, 'message' => 'Token inválido ou expirado']);
+                return;
             }
 
             echo json_encode([
@@ -165,13 +173,13 @@ try {
             break;
         default:
             http_response_code(404);
-            echo json_encode(['error' => 'Ação não encontrada']);
+            echo json_encode(['success' => false, 'message' => 'Ação não encontrada']);
     }
 } catch (Exception $e) {
-    http_response_code($e->getCode() ?: 500);
+    http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'message' => $e->getMessage(),
         'code' => $e->getCode()
     ]);
     exit;

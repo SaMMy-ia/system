@@ -1,34 +1,42 @@
 <?php
 session_start();
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../database/ConexaoBd.php';
 require_once __DIR__ . '/../models/SessaoDAO.php';
 
 try {
-    if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'medico') {
-        throw new Exception('Acesso negado', 403);
+    // Verificar token
+    $token = $_SERVER['HTTP_AUTHORIZATION'] ?? $_COOKIE['authToken'] ?? null;
+    if (strpos($token, 'Bearer ') === 0) {
+        $token = substr($token, 7);
+    }
+
+    if (!$token) {
+        throw new Exception('Token não fornecido', 401);
+    }
+
+    $sessaoDAO = new SessaoDAO();
+    $user = $sessaoDAO->validarToken($token);
+
+    if (!$user || $user['tipo_usuario'] !== 'medico') {
+        throw new Exception('Acesso negado: usuário não autenticado ou não é médico', 403);
     }
 
     $db = new ConexaoBd();
     $conn = $db->getConnection();
-    $sessaoDAO = new SessaoDAO();
-
-    $medicoId = $_SESSION['user_id'];
-    $action = $_GET['action'] ?? ($_POST['action'] ?? '');
+    $medicoId = $user['codigo_usuario'];
+    $action = filter_input(INPUT_GET, 'action', FILTER_SANITIZE_STRING) ?? filter_input(INPUT_POST, 'action', FILTER_SANITIZE_STRING) ?? '';
 
     // Verificar CSRF para ações que modificam dados
-    if (in_array($action, ['cancelar_consulta'])) {
-        $headers = getallheaders();
-        $csrfToken = $headers['X-CSRF-Token'] ?? '';
-
-        if (empty($csrfToken) || $csrfToken !== $_SESSION['csrf_token']) {
+    if ($action === 'cancelar_consulta') {
+        $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? '';
+        if (empty($csrfToken) || $csrfToken !== ($_SESSION['csrf_token'] ?? '')) {
             throw new Exception('Token CSRF inválido', 403);
         }
     }
 
     switch ($action) {
-        // Listar todas as consultas do médico
         case 'listar_consultas':
             $stmt = $conn->prepare("
                 SELECT 
@@ -44,7 +52,6 @@ try {
             ");
             $stmt->execute([$medicoId]);
             $consultas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
             echo json_encode([
                 'success' => true,
                 'consultas' => $consultas,
@@ -52,7 +59,6 @@ try {
             ]);
             break;
 
-        // Próxima consulta do médico
         case 'proxima_consulta':
             $stmt = $conn->prepare("
                 SELECT 
@@ -72,22 +78,13 @@ try {
             $stmt->execute([$medicoId]);
             $consulta = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($consulta) {
-                echo json_encode([
-                    'success' => true,
-                    'consulta' => $consulta,
-                    'message' => 'Próxima consulta encontrada'
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => true,
-                    'consulta' => null,
-                    'message' => 'Nenhuma consulta futura encontrada'
-                ]);
-            }
+            echo json_encode([
+                'success' => true,
+                'consulta' => $consulta ?: null,
+                'message' => $consulta ? 'Próxima consulta encontrada' : 'Nenhuma consulta futura encontrada'
+            ]);
             break;
 
-        // Consultas pendentes do médico
         case 'consultas_pendentes':
             $stmt = $conn->prepare("
                 SELECT COUNT(*) as total
@@ -98,7 +95,6 @@ try {
             ");
             $stmt->execute([$medicoId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
             echo json_encode([
                 'success' => true,
                 'total' => (int)$result['total'],
@@ -106,7 +102,6 @@ try {
             ]);
             break;
 
-        // Consultas de hoje do médico
         case 'consultas_hoje':
             $stmt = $conn->prepare("
                 SELECT COUNT(*) as total
@@ -117,7 +112,6 @@ try {
             ");
             $stmt->execute([$medicoId]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
             echo json_encode([
                 'success' => true,
                 'total' => (int)$result['total'],
@@ -125,40 +119,30 @@ try {
             ]);
             break;
 
-        // Cancelar consulta
         case 'cancelar_consulta':
-            $consultaId = $_POST['consulta_id'] ?? null;
+            $consultaId = filter_input(INPUT_POST, 'consulta_id', FILTER_VALIDATE_INT);
             if (!$consultaId) {
                 throw new Exception('ID da consulta não informado', 400);
             }
 
-            // Verificar se a consulta pertence ao médico
+            // Verificar se a consulta pertence ao médico e está em estado válido
             $stmt = $conn->prepare("
                 SELECT codigo FROM consultas 
-                WHERE codigo = ? AND codigo_medico = ?
+                WHERE codigo = ? 
+                AND codigo_medico = ?
+                AND estado IN ('Agendada', 'Confirmada')
             ");
             $stmt->execute([$consultaId, $medicoId]);
-
             if (!$stmt->fetch()) {
-                throw new Exception('Consulta não encontrada ou não pertence ao médico', 404);
+                throw new Exception('Consulta não encontrada, não pertence ao médico ou já foi cancelada/realizada', 404);
             }
 
-            // Atualizar estado da consulta
-            $stmt = $conn->prepare("
-                UPDATE consultas 
-                SET estado = 'Cancelada' 
-                WHERE codigo = ?
-            ");
+            $conn->beginTransaction();
+            $stmt = $conn->prepare("UPDATE consultas SET estado = 'Cancelada' WHERE codigo = ?");
             $stmt->execute([$consultaId]);
 
-            // Registrar na sessão
-            $sessaoDAO->registarSessao(
-                $medicoId,
-                'medico',
-                'Cancelar Consulta',
-                "Consulta $consultaId cancelada pelo médico"
-            );
-
+            $sessaoDAO->registarSessao($medicoId, 'medico', 'Cancelar Consulta', "Consulta ID: $consultaId cancelada");
+            $conn->commit();
             echo json_encode([
                 'success' => true,
                 'message' => 'Consulta cancelada com sucesso'
@@ -168,22 +152,12 @@ try {
         default:
             throw new Exception('Ação inválida', 400);
     }
-} catch (PDOException $e) {
-    error_log("PDOException in MedicoController: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Erro no banco de dados',
-        'message' => $e->getMessage(),
-        'code' => 500
-    ]);
 } catch (Exception $e) {
     error_log("Exception in MedicoController: " . $e->getMessage());
     http_response_code($e->getCode() ?: 500);
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
-        'message' => $e->getMessage(),
         'code' => $e->getCode()
     ]);
 }

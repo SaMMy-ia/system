@@ -1,36 +1,45 @@
 <?php
-require_once __DIR__ . '/../../database/conexaoBd.php';
+require_once __DIR__ . '/../../database/ConexaoBd.php';
 require_once __DIR__ . '/../../models/SessaoDAO.php';
+require_once __DIR__ . '/../../middleware/auth.php';
 
-session_start();
+header('Content-Type: text/html; charset=utf-8');
 
-// Verificar se o usuário está logado e tem permissão (secretário ou admin)
-if (!isset($_SESSION['user_id']) || ($_SESSION['user_type'] !== 'secretario' && $_SESSION['user_type'] !== 'medico')) {
-    header('Location: ../login.html');
+try {
+    // Verificar autenticação e tipo de usuário
+    $user = checkUserType(['secretario', 'medico']);
+    
+    // Iniciar sessão para CSRF
+    session_start();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    $db = new ConexaoBd();
+    $conn = $db->getConnection();
+
+    // Buscar todos os médicos
+    $stmt = $conn->prepare("SELECT * FROM medicos ORDER BY nome_completo");
+    $stmt->execute();
+    $medicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Registrar ação na sessão
+    $sessaoDAO = new SessaoDAO();
+    $sessaoDAO->registarSessao(
+        $user['codigo_usuario'],
+        $user['tipo_usuario'],
+        'Visualizar Lista de Médicos',
+        'Lista de médicos acessada'
+    );
+} catch (Exception $e) {
+    http_response_code($e->getCode() ?: 500);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'code' => $e->getCode()
+    ]);
     exit;
 }
-
-// Gerar token CSRF
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Conexão com o banco
-$db = new ConexaoBD();
-$conn = $db->getConnection();
-
-// Buscar todos os médicos
-$stmt = $conn->prepare("SELECT * FROM medicos ORDER BY nome_completo");
-$stmt->execute();
-$medicos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Registrar ação na sessão
-$sessaoDAO = new SessaoDAO();
-$sessaoDAO->registarSessao(
-    $_SESSION['user_id'],
-    $_SESSION['user_type'],
-    'Visualização da lista de médicos'
-);
 ?>
 
 <!DOCTYPE html>
@@ -60,11 +69,24 @@ $sessaoDAO->registarSessao(
     </nav>
     
     <div class="sidebar">
-        <a href="../Secretario/dashboardSecretario.php"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <a href="../dashboardSecretario.php"><i class="fas fa-arrow-left"></i> Voltar</a>
         <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
     
     <div class="main">
+        <?php if (isset($_GET['success'])): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> <?= $_GET['success'] === 'updated' ? 'Médico atualizado com sucesso!' : 'Operação realizada com sucesso!' ?>
+        </div>
+        <?php elseif (isset($_GET['error'])): ?>
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> 
+            <?= $_GET['error'] === 'medico_not_found' ? 'Médico não encontrado!' : 
+               ($_GET['error'] === 'medico_has_appointments' ? 'Não é possível inativar: médico possui consultas agendadas!' : 
+               ($_GET['error'] === 'invalid_id' ? 'ID inválido!' : 'Erro no banco de dados!')) ?>
+        </div>
+        <?php endif; ?>
+        
         <div class="filtros">
             <input type="text" id="filtroNome" placeholder="Filtrar por nome..." onkeyup="filtrarTabela()">
             <select id="filtroEspecialidade" onchange="filtrarTabela()">
@@ -106,7 +128,7 @@ $sessaoDAO->registarSessao(
                     </td>
                     <td><?= htmlspecialchars($medico['especialidade']) ?></td>
                     <td><?= htmlspecialchars($medico['numero_da_cedula_profissional']) ?></td>
-                    <td><?= htmlspecialchars($medico['telefone']) ?></td>
+                    <td><?= htmlspecialchars($medico['telefone'] ?? 'Não informado') ?></td>
                     <td><?= htmlspecialchars($medico['email']) ?></td>
                     <td>
                         <span class="badge <?= $medico['estado'] === 'activo' ? 'badge-success' : 'badge-danger' ?>">
@@ -117,9 +139,12 @@ $sessaoDAO->registarSessao(
                         <a href="visualizarMedico.php?id=<?= $medico['codigo'] ?>" class="btn btn-info">
                             <i class="fas fa-eye"></i> Ver
                         </a>
-                        <?php if ($_SESSION['user_type'] === 'secretario'): ?>
+                        <?php if ($user['tipo_usuario'] === 'secretario'): ?>
                         <a href="editarMedico.php?id=<?= $medico['codigo'] ?>" class="btn btn-warning">
                             <i class="fas fa-edit"></i> Editar
+                        </a>
+                        <a href="ApagarMedico.php?id=<?= $medico['codigo'] ?>" class="btn btn-danger" onclick="return confirm('Tem certeza que deseja inativar este médico?')">
+                            <i class="fas fa-trash"></i> Inativar
                         </a>
                         <?php endif; ?>
                     </td>
@@ -130,7 +155,6 @@ $sessaoDAO->registarSessao(
     </div>
 
     <script>
-        //Pesquisar como funciona esse filtro
         function filtrarTabela() {
             const inputNome = document.getElementById('filtroNome').value.toLowerCase();
             const filtroEspecialidade = document.getElementById('filtroEspecialidade').value.toLowerCase();

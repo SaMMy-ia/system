@@ -1,43 +1,62 @@
 <?php
-require_once __DIR__ . '/../../database/conexaoBd.php';
+require_once __DIR__ . '/../../database/ConexaoBd.php';
 require_once __DIR__ . '/../../models/SessaoDAO.php';
 
 session_start();
+header('Content-Type: text/html; charset=utf-8');
 
-// Verificar permissões (médico ou secretário)
-if (!isset($_SESSION['user_id']) || ($_SESSION['user_type'] !== 'medico' && $_SESSION['user_type'] !== 'secretario')) {
-    header('Location: ../login.html');
+// Verificar token
+$token = $_SERVER['HTTP_AUTHORIZATION'] ?? $_COOKIE['authToken'] ?? null;
+if (strpos($token, 'Bearer ') === 0) {
+    $token = substr($token, 7); // Remove "Bearer "
+}
+
+$sessaoDAO = new SessaoDAO();
+$user = $token ? $sessaoDAO->validarToken($token) : null;
+
+if (!$user || !in_array($user['tipo_usuario'], ['secretario', 'medico'])) {
+    header('Location: ../login.html?error=access_denied');
     exit;
 }
 
 // Verificar ID do médico
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    header('Location: listarMedicos.php');
+$medicoId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$medicoId) {
+    header('Location: listarMedicos.php?error=invalid_id');
     exit;
 }
 
-$medicoId = $_GET['id'];
-
-// Buscar dados do médico
-$db = new ConexaoBD();
-$conn = $db->getConnection();
-
-$stmt = $conn->prepare("SELECT * FROM medicos WHERE codigo = ?");
-$stmt->execute([$medicoId]);
-$medico = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$medico) {
-    header('Location: listarMedicos.php?erro=medico_nao_encontrado');
-    exit;
+// Gerar CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Registrar ação na sessão
-$sessaoDAO = new SessaoDAO();
-$sessaoDAO->registarSessao(
-    $_SESSION['user_id'],
-    $_SESSION['user_type'],
-    'Visualização do médico ID: ' . $medicoId
-);
+try {
+    $db = new ConexaoBd();
+    $conn = $db->getConnection();
+
+    // Buscar dados do médico
+    $stmt = $conn->prepare("SELECT * FROM medicos WHERE codigo = ?");
+    $stmt->execute([$medicoId]);
+    $medico = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$medico) {
+        header('Location: listarMedicos.php?error=medico_not_found');
+        exit;
+    }
+
+    // Registrar ação na sessão
+    $sessaoDAO->registarSessao(
+        $user['codigo_usuario'],
+        $user['tipo_usuario'],
+        'Visualização do médico',
+        "Médico ID: $medicoId visualizado"
+    );
+} catch (PDOException $e) {
+    error_log("Erro ao visualizar médico: " . $e->getMessage());
+    header('Location: listarMedicos.php?error=database_error');
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -56,19 +75,30 @@ $sessaoDAO->registarSessao(
     </nav>
     
     <div class="sidebar">
-        <a href="listarMedico.php"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <a href="listarMedicos.php"><i class="fas fa-arrow-left"></i> Voltar</a>
         <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
     
     <div class="main">
+        <?php if (isset($_GET['success'])): ?>
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> Médico atualizado com sucesso!
+        </div>
+        <?php elseif (isset($_GET['error'])): ?>
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> 
+            <?= $_GET['error'] === 'medico_has_appointments' ? 'Não é possível inativar: médico possui consultas agendadas!' : 'Erro ao processar a solicitação!' ?>
+        </div>
+        <?php endif; ?>
+        
         <div class="card">
             <div class="dados-pessoais">
                 <h3><i class="fas fa-id-card"></i> Dados Pessoais</h3>
                 <p><strong>Nome Completo:</strong> <?= htmlspecialchars($medico['nome_completo']) ?></p>
-                <p><strong>Data de Nascimento:</strong> <?= date('d/m/Y', strtotime($medico['data_nascimento'])) ?></p>
-                <p><strong>Sexo:</strong> <?= htmlspecialchars($medico['sexo']) ?></p>
-                <p><strong>Nível Acadêmico:</strong> <?= htmlspecialchars($medico['nivel_academico']) ?></p>
-                <p><strong>Ano de Conclusão:</strong> <?= htmlspecialchars($medico['ano_de_conclusao']) ?></p>
+                <p><strong>Data de Nascimento:</strong> <?= $medico['data_nascimento'] ? date('d/m/Y', strtotime($medico['data_nascimento'])) : 'Não informado' ?></p>
+                <p><strong>Sexo:</strong> <?= htmlspecialchars($medico['sexo'] ?? 'Não informado') ?></p>
+                <p><strong>Nível Acadêmico:</strong> <?= htmlspecialchars($medico['nivel_academico'] ?? 'Não informado') ?></p>
+                <p><strong>Ano de Conclusão:</strong> <?= htmlspecialchars($medico['ano_de_conclusao'] ?? 'Não informado') ?></p>
             </div>
             
             <div class="dados-profissionais">
@@ -85,11 +115,11 @@ $sessaoDAO->registarSessao(
             <div class="dados-contato">
                 <h3><i class="fas fa-address-book"></i> Contato</h3>
                 <p><strong>Email:</strong> <?= htmlspecialchars($medico['email']) ?></p>
-                <p><strong>Telefone:</strong> <?= htmlspecialchars($medico['telefone']) ?></p>
+                <p><strong>Telefone:</strong> <?= htmlspecialchars($medico['telefone'] ?? 'Não informado') ?></p>
             </div>
             
             <div class="acoes">
-                <?php if ($_SESSION['user_type'] === 'secretario'): ?>
+                <?php if ($user['tipo_usuario'] === 'secretario'): ?>
                 <a href="editarMedico.php?id=<?= $medico['codigo'] ?>" class="btn btn-warning">
                     <i class="fas fa-edit"></i> Editar
                 </a>
@@ -103,8 +133,14 @@ $sessaoDAO->registarSessao(
 
     <script>
         function confirmarExclusao(id) {
-            if (confirm('Tem certeza que deseja excluir este médico?\nEsta ação não pode ser desfeita!')) {
-                window.location.href = 'apagarMedico.php?id=' + id;
+            if (confirm('Tem certeza que deseja inativar este médico?\nEsta ação não pode ser desfeita!')) {
+                fetch('apagarMedicos.php?id=' + id, {
+                    headers: {
+                        'X-CSRF-Token': '<?= htmlspecialchars($_SESSION['csrf_token']) ?>'
+                    }
+                }).then(response => {
+                    window.location.href = 'listarMedicos.php';
+                });
             }
         }
     </script>

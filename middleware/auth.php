@@ -1,43 +1,38 @@
 <?php
-require_once __DIR__ . '/../database/conexaoBd.php';
+require_once __DIR__ . '/../database/ConexaoBd.php';
 require_once __DIR__ . '/../models/SessaoDAO.php';
 
 function getBearerToken() {
     $headers = getallheaders();
-    if (isset($headers['Authorization'])) {
-        if (preg_match('/Bearer\s(\S+)/', $headers['Authorization'], $matches)) {
-            return $matches[1];
-        }
+    if (isset($headers['Authorization']) && preg_match('/Bearer\s(\S+)/', $headers['Authorization'], $matches)) {
+        return $matches[1];
     }
-    return $_GET['token'] ?? $_POST['token'] ?? null;
+    return $_COOKIE['authToken'] ?? null;
 }
 
 function authenticate() {
     $token = getBearerToken();
     
     if (!$token) {
-        http_response_code(401);
-        exit(json_encode(['success' => false, 'error' => 'Token não fornecido']));
+        throw new Exception('Token não fornecido', 401);
     }
     
     $sessaoDAO = new SessaoDAO();
     $user = $sessaoDAO->validarToken($token);
     
     if (!$user) {
-        http_response_code(401);
-        exit(json_encode(['success' => false, 'error' => 'Token inválido ou expirado']));
+        throw new Exception('Token inválido ou expirado', 401);
     }
     
     return $user;
 }
 
 function checkUserType($allowedTypes) {
-    $auth = authenticate();
+    $user = authenticate();
     
-    if (!in_array($auth['tipo_usuario'], $allowedTypes)) {
-        http_response_code(403);
-        exit(json_encode(['success' => false, 'error' => 'Acesso não autorizado']));
+    if (!in_array($user['tipo_usuario'], $allowedTypes)) {
+        throw new Exception('Acesso não autorizado', 403);
     }
     
-    return $auth;
+    return $user;
 }

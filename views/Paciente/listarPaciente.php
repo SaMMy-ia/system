@@ -1,36 +1,45 @@
 <?php
-require_once __DIR__ . '/../../database/conexaoBd.php';
+require_once __DIR__ . '/../../database/ConexaoBd.php';
 require_once __DIR__ . '/../../models/SessaoDAO.php';
+require_once __DIR__ . '/../../controllers/auth.php';
 
-session_start();
+header('Content-Type: text/html; charset=utf-8');
 
-// Verificar se o usuário está logado e tem permissão (médico ou admin)
-if (!isset($_SESSION['user_id']) || ($_SESSION['user_type'] !== 'medico' && $_SESSION['user_type'] !== 'secretario')) {
-    header('Location: ../login.html');
+try {
+    // Verificar autenticação e tipo de usuário
+    $user = checkUserType(['secretario', 'medico']);
+    
+    // Iniciar sessão para CSRF
+    session_start();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    $db = new ConexaoBd();
+    $conn = $db->getConnection();
+
+    // Buscar todos os pacientes
+    $stmt = $conn->prepare("SELECT * FROM pacientes ORDER BY nome_completo");
+    $stmt->execute();
+    $pacientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Registrar ação na sessão
+    $sessaoDAO = new SessaoDAO();
+    $sessaoDAO->registarSessao(
+        $user['codigo_usuario'],
+        $user['tipo_usuario'],
+        'Visualizar Lista de Pacientes',
+        'Lista de pacientes acessada'
+    );
+} catch (Exception $e) {
+    http_response_code($e->getCode() ?: 500);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage(),
+        'code' => $e->getCode()
+    ]);
     exit;
 }
-
-// Gerar token CSRF
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Conexão com o banco
-$db = new ConexaoBD();
-$conn = $db->getConnection();
-
-// Buscar todos os pacientes
-$stmt = $conn->prepare("SELECT * FROM pacientes ORDER BY nome_completo");
-$stmt->execute();
-$pacientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Registrar ação na sessão
-$sessaoDAO = new SessaoDAO();
-$sessaoDAO->registarSessao(
-    $_SESSION['user_id'],
-    $_SESSION['user_type'],
-    'Visualização da lista de pacientes'
-);
 ?>
 
 <!DOCTYPE html>
@@ -49,7 +58,7 @@ $sessaoDAO->registarSessao(
     </nav>
     
     <div class="sidebar">
-        <a href="../dashboardMedico.php"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <a href="../dashboardSecretario.php"><i class="fas fa-arrow-left"></i> Voltar</a>
         <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
     
@@ -81,9 +90,9 @@ $sessaoDAO->registarSessao(
                 <tr>
                     <td><?= htmlspecialchars($paciente['codigo']) ?></td>
                     <td><?= htmlspecialchars($paciente['nome_completo']) ?></td>
-                    <td><?= date('d/m/Y', strtotime($paciente['data_nascimento'])) ?></td>
-                    <td><?= htmlspecialchars($paciente['sexo']) ?></td>
-                    <td><?= htmlspecialchars($paciente['telefone']) ?></td>
+                    <td><?= $paciente['data_nascimento'] ? date('d/m/Y', strtotime($paciente['data_nascimento'])) : 'Não informado' ?></td>
+                    <td><?= htmlspecialchars($paciente['sexo'] ?? 'Não informado') ?></td>
+                    <td><?= htmlspecialchars($paciente['telefone'] ?? 'Não informado') ?></td>
                     <td><?= htmlspecialchars($paciente['email']) ?></td>
                     <td>
                         <span class="badge <?= $paciente['estado'] === 'activo' ? 'badge-success' : 'badge-danger' ?>">
@@ -94,6 +103,11 @@ $sessaoDAO->registarSessao(
                         <a href="visualizarPaciente.php?id=<?= $paciente['codigo'] ?>" class="btn btn-info">
                             <i class="fas fa-eye"></i> Ver
                         </a>
+                        <?php if ($user['tipo_usuario'] === 'secretario'): ?>
+                        <a href="editarPaciente.php?id=<?= $paciente['codigo'] ?>" class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Editar
+                        </a>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
