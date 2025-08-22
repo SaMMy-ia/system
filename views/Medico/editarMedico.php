@@ -1,14 +1,14 @@
 <?php
 require_once __DIR__ . '/../../database/ConexaoBd.php';
 require_once __DIR__ . '/../../models/SessaoDAO.php';
-require_once __DIR__ . '/../../controllers/auth.php';
+require_once __DIR__ . '/../../middleware/auth.php';
 
 header('Content-Type: text/html; charset=utf-8');
 
 try {
     // Verificar autenticação e tipo de usuário
     $user = checkUserType(['secretario']);
-    
+
     // Iniciar sessão para CSRF
     session_start();
     if (empty($_SESSION['csrf_token'])) {
@@ -163,13 +163,243 @@ try {
 
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Médico - SumNanz</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../css/styles.css">
+    <style>
+        /* Paleta de cores principal: Azul profissional e verde médico */
+        :root {
+            --primary-color: #1a73e8;
+            /* Azul profissional */
+            --secondary-color: #34a853;
+            /* Verde médico */
+            --light-bg: #f8f9fa;
+            /* Fundo claro */
+            --dark-text: #202124;
+            /* Texto escuro */
+            --light-text: #f8f9fa;
+            /* Texto claro */
+            --border-color: #dadce0;
+            /* Cor da borda */
+            --success-color: #28a745;
+            /* Verde sucesso */
+            --danger-color: #dc3545;
+            /* Vermelho perigo */
+            --warning-color: #ffc107;
+            /* Amarelo aviso */
+            --info-color: #17a2b8;
+            /* Azul informação */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--light-bg);
+            color: var(--dark-text);
+            line-height: 1.6;
+        }
+
+        nav {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        nav h1 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        nav h2 {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .sidebar {
+            background-color: white;
+            width: 250px;
+            height: calc(100vh - 70px);
+            position: fixed;
+            padding: 1.5rem 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar a {
+            display: block;
+            padding: 0.8rem 1.5rem;
+            color: var(--dark-text);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar a:hover {
+            background-color: rgba(26, 115, 232, 0.1);
+            color: var(--primary-color);
+        }
+
+        .main {
+            margin-left: 250px;
+            padding: 2rem;
+        }
+
+        .alert {
+            padding: 0.8rem 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .alert-success {
+            background-color: rgba(40, 167, 69, 0.15);
+            color: var(--success-color);
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        form {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 1000px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+        }
+
+        input:invalid,
+        select:invalid {
+            border-color: var(--danger-color);
+        }
+
+        input:valid,
+        select:valid {
+            border-color: var(--success-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0d62d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 992px) {
+            .sidebar {
+                width: 200px;
+            }
+
+            .main {
+                margin-left: 200px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                display: flex;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .form-group {
+                min-width: 100%;
+            }
+        }
+    </style>
 </head>
+
 <body>
     <nav>
         <h1><i class="fas fa-user-md"></i> SumNanz - Editar Médico</h1>
@@ -177,7 +407,7 @@ try {
     </nav>
 
     <div class="sidebar">
-        <a href="listarMedicos.php"><i class="fas fa-arrow-left"></i> Voltar</a>
+        <a href="listarMedico.php"><i class="fas fa-arrow-left"></i> Voltar</a>
         <a href="../logout.php"><i class="fas fa-sign-out-alt"></i> Sair</a>
     </div>
 
@@ -262,4 +492,5 @@ try {
         </form>
     </div>
 </body>
+
 </html>

@@ -51,17 +51,14 @@ if (empty($_SESSION['csrf_token'])) {
             <div class="card">
                 <h3>Consultas Hoje</h3>
                 <p id="consultasHoje">
-                <div class="loading"></div> Carregando...</p>
             </div>
             <div class="card">
                 <h3>Pendentes</h3>
                 <p id="consultasPendentes">
-                <div class="loading"></div> Carregando...</p>
             </div>
             <div class="card">
                 <h3>Confirmadas</h3>
                 <p id="consultasConfirmadas">
-                <div class="loading"></div> Carregando...</p>
             </div>
         </div>
 
